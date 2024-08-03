@@ -58,6 +58,8 @@ int main(int argc, char *argv[])
     host_c.shape[0] = host_a.shape[0];
     host_c.shape[1] = host_a.shape[1];
     host_c.data = (float *)malloc(sizeof(float) * host_c.shape[0] * host_c.shape[1]);
+    printf("cpu host_shape[0]=%d\n",host_c.shape[0]);
+    printf("cpu host_shape[1]=%d\n",host_c.shape[1]);
 
     // Find platforms and devices
     OclPlatformProp *platforms = NULL;
@@ -90,8 +92,42 @@ int main(int argc, char *argv[])
     CHECK_ERR(err, "clCreateKernel");
 
     //@@ Allocate GPU memory here
+    device_a= clCreateBuffer( context, CL_MEM_READ_ONLY, sizeof(float)*host_a.shape[0]* host_a.shape[1],  NULL, &err); 
+    device_b= clCreateBuffer( context, CL_MEM_READ_ONLY, sizeof(float)*host_b.shape[0]* host_b.shape[1],  NULL, &err); 
+    device_c= clCreateBuffer( context, CL_MEM_READ_ONLY, sizeof(float)*host_c.shape[0]* host_c.shape[1],  NULL, &err); 
 
     //@@ Copy memory to the GPU here
+    err = clEnqueueWriteBuffer(queue,
+                               device_a,
+                               CL_TRUE,
+                               0,
+                               host_a.shape[0] * host_a.shape[1] * sizeof(float),
+                               host_a.data,
+                               0,
+                               NULL,
+                               NULL);
+   CHECK_ERR(err, "clEnqueueWriteBuffer device_a");
+
+   err = clEnqueueWriteBuffer(queue,
+                               device_b,
+                               CL_TRUE,
+                               0,
+                               host_b.shape[0] * host_b.shape[1] * sizeof(float),
+                               host_b.data,
+                               0,
+                               NULL,
+                               NULL);
+  CHECK_ERR(err, "clEnqueueWriteBuffer device_b");
+err = clEnqueueWriteBuffer(queue,
+                               device_c,
+                               CL_TRUE,
+                               0,
+                               host_c.shape[0] * host_c.shape[1] * sizeof(float),
+                               host_c.data,
+                               0,
+                               NULL,
+                               NULL);
+  CHECK_ERR(err, "clEnqueueWriteBuffer device_c");
 
     // Set the arguments to our compute kernel
     unsigned int size_a = host_a.shape[0] * host_a.shape[1];
@@ -104,11 +140,27 @@ int main(int argc, char *argv[])
     err |= clSetKernelArg(kernel, 3, sizeof(unsigned int), &size_a);
     CHECK_ERR(err, "clSetKernelArg 3");
 
-    //@@ Initialize the global size and local size here
+    //@@ Initialize tbal size and local size here
+    local_item_size=1;
+    //global_item_size=size_a;
+    global_item_size=size_a;
+    printf("cpu global_item_size=%lu\n",global_item_size);
 
     //@@ Launch the GPU Kernel here
+    err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_item_size, &local_item_size, 0, NULL, NULL);
+    CHECK_ERR(err, "clEnqueueNDRangeKernel");
 
     //@@ Copy the GPU memory back to the CPU here
+    err = clEnqueueReadBuffer(queue,
+                               device_c,
+                               CL_TRUE,
+                               0,
+                               host_c.shape[0] * host_c.shape[1] * sizeof(float),
+                               host_c.data,
+                               0,
+                               NULL,
+                               NULL);
+   CHECK_ERR(err, "clEnqueueReadBuffer device_c");
     
     // // Prints the results
     // for (unsigned int i = 0; i < host_c.shape[0] * host_c.shape[1]; i++)
